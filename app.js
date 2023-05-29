@@ -1,10 +1,11 @@
 //jshint esversion:6
-require('dotenv').config()
+require("dotenv").config();
 const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
-const md5 = require('md5');
+const bcrypt = require("bcrypt");
+const saltRounds = 8;
 
 const app = express();
 
@@ -16,9 +17,8 @@ mongoose.connect("mongodb://localhost:27017/userDB", { useNewUrlParser: true });
 const userSchema = new mongoose.Schema({
   email: String,
   password: String,
-});encryptedFields: ['age']
-
-
+});
+encryptedFields: ["age"];
 
 const User = new mongoose.model("User", userSchema);
 
@@ -33,12 +33,13 @@ app.get("/register", (req, res) => {
 });
 
 app.post("/register", (req, res) => {
-  const newuser = new User({
-    email: req.body.username,
-    password: md5(req.body.password)
-  });
 
-  newuser
+  bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
+    const newuser = new User({
+      email: req.body.username,
+      password: hash,
+    });
+    newuser
     .save()
     .then((err) => {
       res.render("secrets");
@@ -46,31 +47,33 @@ app.post("/register", (req, res) => {
     .catch((err) => {
       console.log(err);
     });
+  });
+
+ 
 });
 
 
-app.post("/login",(req,res)=>{
-    const username=req.body.username;
-    const passWord=md5(req.body.password);
-
-    User.find({email:username},{password:passWord}).then((err)=>{
-      if(err.length)
-        res.render("secrets");
-        else{
-         
-          res.render("login");
-        }
-      
-}).catch((err)=>{
-    console.log(err);
-});
-});
-
-        
-        
-        
+app.post("/login", (req, res) => {
+  const username = req.body.username;
+  const passWord = (req.body.password);
   
 
+  User.findOne({ email: username })
+    .then((result) => {
+      bcrypt.compare(passWord, result.password, function(err, Result) {
+        if(Result){
+          res.render('secrets');
+        }
+        else{
+          res.render('login');
+        }
+    });
+     
+    })
+    .catch((err) => {
+      console.log(err);
+    });
+});
 
 app.listen(3000, () => {
   console.log("port is listening");
